@@ -61,12 +61,104 @@
 
     <li class="apidocModuleLi"><a href="#apidoc.module.combine-css">module combine-css</a><ol>
 
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.combine-css.combine-css">
+            function <span class="apidocSignatureSpan"></span>combine-css
+            <span class="apidocSignatureSpan">(options)</span>
+            </a>
+
+        </li>
+
     </ol></li>
 
 </ol></div>
 
 <div class="apidocSectionDiv">
 <h1><a href="#apidoc.module.combine-css" id="apidoc.module.combine-css">module combine-css</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.combine-css.combine-css" id="apidoc.element.combine-css.combine-css">
+        function <span class="apidocSignatureSpan"></span>combine-css
+        <span class="apidocSignatureSpan">(options)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">combine-css = function (options){
+    var pluginName = &#x27;combine-css&#x27;;
+
+    options = options || {};
+
+    var lengthLimit = options.lengthLimit || 999,
+        selectorLimit = options.selectorLimit || 4,
+        prefix = options.prefix || &#x27;style-&#x27;;
+
+    var buffer = [],
+        resultFileBuffers = [],
+        firstFile = null,
+        currentResultFileLength = 0,
+        currentNumberOfSelectors = 0;
+
+    function endFile(){
+        resultFileBuffers.push(buffer);
+        buffer = [];
+        currentResultFileLength = 0;
+        currentNumberOfSelectors = 0;
+    }
+
+    function bufferContents(file){
+        if (file.isNull()) return; // ignore
+        if (file.isStream()) return this.emit(&#x27;error&#x27;, new Error(pluginName,  &#x27;Streaming not supported&#x27;));
+
+        if (!firstFile) firstFile = file;
+
+        var fileContents = file.contents.toString(&#x27;utf8&#x27;),
+            fileLength = fileContents.length;
+
+        if(!fileLength) return;
+
+        if(buffer.length &#x26;&#x26; currentResultFileLength + fileLength &#x3e; lengthLimit){
+            endFile();
+        }
+
+
+        //get selector count
+        var selectorCount = gonzales.csspToTree(gonzales.srcToCSSP(fileContents)).match(/simpleselector/g).length;
+
+        if(buffer.length &#x26;&#x26; currentNumberOfSelectors + selectorCount &#x3e; selectorLimit){
+            endFile();
+        }
+
+        buffer.push(fileContents);
+        currentResultFileLength += fileLength;
+        currentNumberOfSelectors += selectorCount;
+    }
+
+    function endStream(){
+        if (buffer.length &#x3e; 0){
+            resultFileBuffers.push(buffer);
+        }
+
+        if(resultFileBuffers.length === 0) this.emit(&#x27;end&#x27;);
+
+        resultFileBuffers.map(function(resultFileBuffer, index){
+            this.push(new File({
+                cwd: firstFile.cwd,
+                base: firstFile.base,
+                path: path.join(firstFile.base, prefix + index + &#x27;.css&#x27;),
+                contents: new Buffer(resultFileBuffer.join(&#x27;&#x27;))
+            }));
+
+        }.bind(this));
+        this.emit(&#x27;end&#x27;);
+    }
+
+    return through(bufferContents, endStream);
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
 
 </div>
 
